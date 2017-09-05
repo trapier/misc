@@ -1,27 +1,23 @@
 #!/bin/bash
 
-# A simple script to get information about mount points and pids and their
-# mount namespaces.
+# A script to collect information about dead container mount points 
 
-if [ $# -ne 1 ];then
-  echo "Usage: $0 <devicemapper-device-id>"
-  exit 1
-fi
+IDS=`docker ps --format {{.ID}} -f status=dead`
 
-ID=$1
+printf "ID\t\tPID\tNAME\t\tMNTNS\n"
+echo "$IDS" | while read ID; do 
+  MOUNTS=`find /proc/*/mounts | xargs grep $ID 2>/dev/null`
 
-MOUNTS=`find /proc/*/mounts | xargs grep $ID 2>/dev/null`
+  [ -z "$MOUNTS" ] &&  echo "No pids found" && exit 0
 
-[ -z "$MOUNTS" ] &&  echo "No pids found" && exit 0
-
-printf "PID\tNAME\t\tMNTNS\n"
-echo "$MOUNTS" | while read LINE; do
-  PID=`echo $LINE | cut -d ":" -f1 | cut -d "/" -f3`
-  # Ignore self and thread-self
-  if [ "$PID" == "self" ] || [ "$PID" == "thread-self" ]; then
-    continue
-  fi
-  NAME=`ps -q $PID -o comm=`
-  MNTNS=`readlink /proc/$PID/ns/mnt`
-  printf "%s\t%s\t\t%s\n" "$PID" "$NAME" "$MNTNS"
-done
+  echo "$MOUNTS" | while read LINE; do
+    PID=`echo $LINE | cut -d ":" -f1 | cut -d "/" -f3`
+    # Ignore self and thread-self
+    if [ "$PID" == "self" ] || [ "$PID" == "thread-self" ]; then
+      continue
+    fi
+    NAME=`ps -q $PID -o comm=`
+    MNTNS=`readlink /proc/$PID/ns/mnt`
+    printf "%s\t%s\t%s\t\t%s\n" "$ID" "$PID" "$NAME" "$MNTNS"
+  done
+done 
