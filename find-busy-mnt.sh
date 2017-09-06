@@ -4,6 +4,12 @@
 
 IDS=`docker ps --format {{.ID}} -f status=dead`
 
+if [ -z "$IDS" ];then
+  echo "No dead containers found"
+  exit 0
+fi
+
+
 printf "ID\t\tPID\tNAME\t\tMNTNS\n"
 echo "$IDS" | while read ID; do 
   MOUNTS=`find /proc/*/mounts | xargs grep $ID 2>/dev/null`
